@@ -8,6 +8,7 @@ import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.events.session.ReadyEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.example.core.constants.TextChannelsID;
+import org.example.core.controllers.SecurityController;
 import org.example.core.controllers.RolesController;
 import org.example.data.source.ApiService;
 import org.example.data.source.db.DbOperations;
@@ -18,6 +19,7 @@ import org.jetbrains.annotations.NotNull;
 public class MainListenerAdapter extends ListenerAdapter {
 
     RolesController rolesController;
+    SecurityController securityController;
 
     public void onReady(@NotNull ReadyEvent event) {
 
@@ -25,6 +27,7 @@ public class MainListenerAdapter extends ListenerAdapter {
         UseCase useCase = UseCase.getInstance(apiService, new DbOperations());
 
         rolesController = RolesController.getInstance(useCase);
+        securityController = SecurityController.getInstance(useCase);
     }
 
     @Override
@@ -43,6 +46,7 @@ public class MainListenerAdapter extends ListenerAdapter {
 
     @Override
     public void onMessageReceived(@NotNull MessageReceivedEvent event) {
+        securityController.onMessageListener(event);
         if (event.getChannel().getType() == ChannelType.TEXT) {
             long channelId = event.getChannel().asTextChannel().getIdLong();
 
@@ -51,6 +55,7 @@ public class MainListenerAdapter extends ListenerAdapter {
             }
 
         }
+
     }
 
     public void onButtonInteraction(@NotNull ButtonInteractionEvent event) {

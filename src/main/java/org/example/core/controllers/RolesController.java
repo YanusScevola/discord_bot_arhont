@@ -26,7 +26,6 @@ import java.util.concurrent.TimeUnit;
 public class RolesController {
     private static final int TEST_TIMER_SEC = 25;
     private static final int AWAITING_TEST_COOL_DOWN_MIN = 60;
-    private static final int MAX_QUESTIONS = 25;
 
     private static final int MAX_COUNT_FOR_LEVEL = 5;
     private static final int MAX_CACHE_SIZE = 20;
