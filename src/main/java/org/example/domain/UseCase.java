@@ -119,8 +119,8 @@ public class UseCase {
     }
 
 
-    public CompletableFuture<List<Question>> getRandomQuestions(Integer difficultyLevel) {
-        return dataBase.getRandomQuestions(difficultyLevel).thenApply(questionModels -> questionModels.stream()
+    public CompletableFuture<List<Question>> getRandomQuestions(String testName, Integer levelsLimit) {
+        return dataBase.getRandomQuestions(testName, levelsLimit).thenApply(questionModels -> questionModels.stream()
                 .map(questionModel -> new Question(
                         questionModel.getId(),
                         questionModel.getText(),
@@ -130,9 +130,9 @@ public class UseCase {
                 .collect(Collectors.toList()));
     }
 
-    public CompletableFuture<Boolean> addAwaitingTest(AwaitingTestUser testUser) {
+    public CompletableFuture<Boolean> addAwaitingTest(AwaitingTestUser testUser, Integer awaitingTimeMinutes) {
         LocalDateTime localDateTime = testUser.getTime().toLocalDateTime();
-        LocalDateTime updatedDateTime = localDateTime.plusMinutes(30);
+        LocalDateTime updatedDateTime = localDateTime.plusMinutes(awaitingTimeMinutes);
         LocalDateTime utcDateTime = DateTimeUtils.toUtc(updatedDateTime);
         Timestamp utcTimestamp = Timestamp.valueOf(utcDateTime);
 
@@ -156,7 +156,7 @@ public class UseCase {
             AwaitingTestUserModel model = testUserModels.get(0);
 
             return apiService.getMembersByIds(Collections.singletonList(model.getUserId())).thenApply(members -> {
-                if(members.isEmpty()) {
+                if (members.isEmpty()) {
                     return null;
                 }
 
@@ -183,23 +183,19 @@ public class UseCase {
 
     public CompletableFuture<Boolean> removeOverdueAwaitingTestUser() {
         return dataBase.removeOverdueAwaitingTestUser().thenApply(result -> {
-            if(result) {
+            if (result) {
                 System.out.println("Удалены просроченные записи");
                 return true;
-            }else {
+            } else {
                 System.out.println("Нет просроченных записей");
                 return false;
             }
         });
     }
 
-
-
-
-
-
-
-
+    public CompletableFuture<Integer> getQuestionCountByTableName(String tableName) {
+        return dataBase.getQuestionCountByTableName(tableName);
+    }
 
 
 }

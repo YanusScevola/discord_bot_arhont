@@ -24,8 +24,11 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 public class RolesController {
-    private static final int TEST_TIMER = 30;
-    private static final int MAX_QUESTIONS = 6;
+    private static final int TEST_TIMER_SEC = 25;
+    private static final int AWAITING_TEST_COOL_DOWN_MIN = 60;
+    private static final int MAX_QUESTIONS = 25;
+
+    private static final int MAX_COUNT_FOR_LEVEL = 5;
     private static final int MAX_CACHE_SIZE = 20;
 
     private static final String GET_ROLE_BTN_ID = "get_role";
@@ -99,11 +102,14 @@ public class RolesController {
 
     private void onClickGetRole(ButtonInteractionEvent event, Member member) {
         if (event.getMember() == null) return;
-
+        String debaterAPFTitle = "<@&" + RolesID.DEBATER_APF_1 + ">";
+        String historianTitle = "<@&" + RolesID.HISTORY_PHILOSOPHY_1 + ">";
+        String logicTitle = "<@&" + RolesID.LOGIC_1 + ">";
         String description = getEmbedDescriptionByEvent(event);
+
         if (description == null) return;
 
-        if (description.contains("Роль дебатер")) {
+        if (description.contains(debaterAPFTitle)) {
             if (isMemberHasRole(debatersRuleIds, event.getMember())) {
                 showShortEphemeral(event, "У вас уже есть данная роль");
                 return;
@@ -114,12 +120,14 @@ public class RolesController {
                 selectedTestByMemberMap.put(member, TestsID.APF_TEST);
                 editEphemeralDebaterRoleInformation(hook, member);
             });
-        } else if (description.contains("Роль историк")) {
-            event.reply("Роль историк").setEphemeral(true).queue();
-        } else if (description.contains("Роль логик")) {
-            event.reply("Роль логик").setEphemeral(true).queue();
+        } else if (description.contains(historianTitle)) {
+            event.reply("Роль пока не доступна").setEphemeral(true).queue();
+        } else if (description.contains(logicTitle)) {
+            event.reply("Роль пока не доступна").setEphemeral(true).queue();
         } else {
-            event.reply("Неизвестная роль. Пожалуйста, обратитесь к администратору.").setEphemeral(true).queue();
+            useCase.showEphemeralShortLoading(event).thenAccept(hook -> {
+                hook.editOriginal("Роль пока не доступна").queue();
+            });
         }
     }
 
@@ -146,21 +154,28 @@ public class RolesController {
     }
 
     private void onClickAnswer(ButtonInteractionEvent event, Member member) {
-        TestDataByUser currentTestData = testDataByMemberMap.get(event.getMember());
-        ScheduledFuture<?> currentTimer = currentTestData.getTimers().remove(member);
-        Question currentQuestion = currentTestData.getCurrentQuestion();
-        String selectedAnswer = currentQuestion.getAnswers().get(answerButtonIdByAnswersIndex.get(event.getComponentId()));
-        boolean isSelectedAnswerCorrect = currentQuestion.getCorrectAnswer().equals(selectedAnswer);
+        try {
+            TestDataByUser currentTestData = testDataByMemberMap.get(event.getMember());
+            ScheduledFuture<?> currentTimer = currentTestData.getTimers().remove(member);
+            Question currentQuestion = currentTestData.getCurrentQuestion();
+            String selectedAnswer = currentQuestion.getAnswers().get(answerButtonIdByAnswersIndex.get(event.getComponentId()));
+            boolean isSelectedAnswerCorrect = currentQuestion.getCorrectAnswer().equals(selectedAnswer);
+            useCase.getQuestionCountByTableName(TestsID.APF_TEST).thenAccept(count -> {
+                if (isSelectedAnswerCorrect) {
+                    if (currentTimer != null) currentTimer.cancel(false);
+                    if (currentTestData.getCurrentQuestionNumber() == processNumber(count)) {
+                        showTestSuccess(event);
+                        return;
+                    }
 
-        if (isSelectedAnswerCorrect) {
-            if (currentTimer != null) currentTimer.cancel(false);
-            if (currentTestData.getCurrentQuestionNumber() == MAX_QUESTIONS) {
-                showTestSuccess(event);
-                return;
-            }
-            showNextQuestion(event, currentTestData.getCurrentQuestionNumber() + 1);
-        } else {
-            showTestFailed(event);
+                    showNextQuestion(event, currentTestData.getCurrentQuestionNumber() + 1);
+
+                } else {
+                    showTestFailed(event);
+                }
+            });
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
@@ -173,14 +188,14 @@ public class RolesController {
     }
 
     private void showAllEmbedRoles() {
-        String debaterAPFTitle = "Роль дебатер";
-        String historianTitle = "Роль историк";
-        String logicTitle = "Роль логик";
+        String debaterAPFTitle = "<@&" + RolesID.DEBATER_APF_1 + ">";
+        String historianTitle = "<@&" + RolesID.HISTORY_PHILOSOPHY_1 + ">";
+        String logicTitle = "<@&" + RolesID.LOGIC_1 + ">";
 
         channel.getIterableHistory().queue(messages -> {
-            boolean debaterAPFExists = messages.stream().anyMatch(message -> message.getEmbeds().stream().anyMatch(embed -> debaterAPFTitle.equals(embed.getDescription())));
-            boolean historianExists = messages.stream().anyMatch(message -> message.getEmbeds().stream().anyMatch(embed -> historianTitle.equals(embed.getDescription())));
-            boolean logicExists = messages.stream().anyMatch(message -> message.getEmbeds().stream().anyMatch(embed -> logicTitle.equals(embed.getDescription())));
+            boolean debaterAPFExists = messages.stream().anyMatch(message -> message.getEmbeds().stream().anyMatch(embed -> Objects.requireNonNull(embed.getDescription()).contains(debaterAPFTitle)));
+            boolean historianExists = messages.stream().anyMatch(message -> message.getEmbeds().stream().anyMatch(embed -> Objects.requireNonNull(embed.getDescription()).contains(historianTitle)));
+            boolean logicExists = messages.stream().anyMatch(message -> message.getEmbeds().stream().anyMatch(embed -> Objects.requireNonNull(embed.getDescription()).contains(logicTitle)));
 
             Button getRoleButton = Button.primary(GET_ROLE_BTN_ID, "Получить роль");
 
@@ -211,26 +226,27 @@ public class RolesController {
     }
 
     public void editEphemeralDebaterRoleInformation(InteractionHook hook, Member member) {
-        EmbedBuilder embed = new EmbedBuilder();
-        embed.setColor(Colors.BLUE);
-        embed.setDescription("Чтобы получить роль <@& + RolesID.DEBATER_APF_1 + > необходимо пройти тест на знание правил дебатов АПФ.**\n\n" +
-                "- Чтобы подготовиться к тесту пройдите в канал <#" + TextChannelsID.RULES_APF + ">.\n" +
-                "- В тесте будут " + MAX_QUESTIONS + " вопросов и 4 варианта ответа.\n" +
-                "- На каждый вопрос выделяется " + TEST_TIMER + " секунд.\n");
+        useCase.getQuestionCountByTableName(TestsID.APF_TEST).thenAccept(count -> {
+            EmbedBuilder embed = new EmbedBuilder();
+            embed.setColor(Colors.BLUE);
+            embed.setDescription("Чтобы получить роль <@&" + RolesID.DEBATER_APF_1 + "> необходимо пройти тест на знание правил дебатов АПФ.**\n\n" +
+                    "- Чтобы подготовиться к тесту пройдите в канал <#" + TextChannelsID.RULES_APF + ">.\n" +
+                    "- В тесте всего будут " + processNumber(count) + " вопросов и 4 варианта ответа.\n" +
+                    "- На каждый вопрос выделяется " + TEST_TIMER_SEC + " секунд.\n");
 
-        hook.editOriginalEmbeds(embed.build())
-                .setActionRow(Button.primary(START_TEST_BTN_ID, "Начать тест"))
-                .queue(message -> {
-                    removeFirstEntry(testInformationHookByMemberMap, MAX_CACHE_SIZE);
-                    testInformationHookByMemberMap.put(member, hook);
-                });
-
+            hook.editOriginalEmbeds(embed.build())
+                    .setActionRow(Button.primary(START_TEST_BTN_ID, "Начать тест"))
+                    .queue(message -> {
+                        removeFirstEntry(testInformationHookByMemberMap, MAX_CACHE_SIZE);
+                        testInformationHookByMemberMap.put(member, hook);
+                    });
+        });
     }
 
     public void startTest(UseCase useCase, ButtonInteractionEvent event, Member member) {
         event.deferReply(true).queue(loadingHook -> {
             String selectedTestName = selectedTestByMemberMap.get(member);
-            useCase.getAllTestQuestions(selectedTestName).thenAccept(questions -> {
+            useCase.getRandomQuestions(selectedTestName, MAX_COUNT_FOR_LEVEL).thenAccept(questions -> {
                 loadingHook.deleteOriginal().queue();
                 TestDataByUser currentTestData = new TestDataByUser(member, questions);
                 removeFirstEntry(testDataByMemberMap, MAX_CACHE_SIZE);
@@ -241,90 +257,91 @@ public class RolesController {
     }
 
     public void showNextQuestion(ButtonInteractionEvent event, int questionNumber) {
-        Member member = Objects.requireNonNull(event.getMember());
-        TestDataByUser currentTestData = testDataByMemberMap.get(member);
-        InteractionHook needToStartTestHook = testInformationHookByMemberMap.get(member);
-        boolean isFirstQuestion = questionNumber == 1;
+        useCase.getQuestionCountByTableName(TestsID.APF_TEST).thenAccept(count -> {
+            Member member = Objects.requireNonNull(event.getMember());
+            TestDataByUser currentTestData = testDataByMemberMap.get(member);
+            InteractionHook needToStartTestHook = testInformationHookByMemberMap.get(member);
+            boolean isFirstQuestion = questionNumber == 1;
 
-        if (currentTestData.getQuestions().isEmpty()) {
-            if (isFirstQuestion) {
-                testInformationHookByMemberMap.remove(member);
-                showTestFailed(member, needToStartTestHook);
-            } else {
-                showTestFailed(event);
+            if (currentTestData.getQuestions().isEmpty()) {
+                if (isFirstQuestion) {
+                    testInformationHookByMemberMap.remove(member);
+                    showTestFailed(member, needToStartTestHook);
+                } else {
+                    showTestFailed(event);
+                }
+
+                System.err.println("Список вопросов пуст");
+                return;
             }
 
-            System.err.println("Список вопросов пуст");
-            return;
-        }
+            ScheduledFuture<?> previousTimer = currentTestData.getTimers().remove(member);
+            if (previousTimer != null) {
+                previousTimer.cancel(false);
+            }
 
-        ScheduledFuture<?> previousTimer = currentTestData.getTimers().remove(member);
-        if (previousTimer != null) {
-            previousTimer.cancel(false);
-        }
+            Question currentQuestion = currentTestData.getQuestions().get(questionNumber - 1);
+            long currentTimeInSeconds = System.currentTimeMillis() / 1000L;
+            long twentySecondsLater = currentTimeInSeconds + TEST_TIMER_SEC;
 
-        Question currentQuestion = currentTestData.getQuestions().get(questionNumber - 1);
-        long currentTimeInSeconds = System.currentTimeMillis() / 1000L;
-        long twentySecondsLater = currentTimeInSeconds + TEST_TIMER;
+            EmbedBuilder embed = new EmbedBuilder();
+            embed.setColor(Colors.BLUE);
+            embed.setFooter((questionNumber) + " из " + processNumber(count));
 
-        EmbedBuilder embed = new EmbedBuilder();
-        embed.setColor(Colors.BLUE);
-        embed.setFooter((questionNumber) + " из " + MAX_QUESTIONS);
+            String timerText = ":stopwatch: <t:" + twentySecondsLater + ":R>\n\n";
+            String questionText = "**" + currentQuestion.getText() + "**\n\n";
+            String answersText = "**A**. " + currentQuestion.getAnswers().get(0).trim() + "\n" +
+                    "**B**. " + currentQuestion.getAnswers().get(1).trim() + "\n" +
+                    "**C**. " + currentQuestion.getAnswers().get(2).trim() + "\n" +
+                    "**D**. " + currentQuestion.getAnswers().get(3).trim() + "\n";
 
-        String timerText = ":stopwatch: <t:" + twentySecondsLater + ":R>\n\n";
-        String questionText = "**" + currentQuestion.getText() + "**\n\n";
-        String answersText = "**A**. " + currentQuestion.getAnswers().get(0) + "\n" +
-                "**B**. " + currentQuestion.getAnswers().get(1) + "\n" +
-                "**C**. " + currentQuestion.getAnswers().get(2) + "\n" +
-                "**D**. " + currentQuestion.getAnswers().get(3) + "\n";
+            embed.setDescription(timerText + questionText + answersText);
 
-        embed.setDescription(timerText + questionText + answersText);
+            Button a = Button.primary(ANSWER_A_BTN_ID, "A");
+            Button b = Button.primary(ANSWER_B_BTN_ID, "B");
+            Button c = Button.primary(ANSWER_C_BTN_ID, "C");
+            Button d = Button.primary(ANSWER_D_BTN_ID, "D");
 
-        Button a = Button.primary(ANSWER_A_BTN_ID, "A");
-        Button b = Button.primary(ANSWER_B_BTN_ID, "B");
-        Button c = Button.primary(ANSWER_C_BTN_ID, "C");
-        Button d = Button.primary(ANSWER_D_BTN_ID, "D");
+            if (isFirstQuestion) {
+                needToStartTestHook.editOriginalEmbeds(embed.build())
+                        .setActionRow(a, b, c, d)
+                        .queue(message -> {
+                                    ScheduledFuture<?> timer = currentTestData
+                                            .getScheduler()
+                                            .schedule(() -> {
+                                                showTestFailed(member, message);
+                                            }, TEST_TIMER_SEC, TimeUnit.SECONDS);
 
-        if (isFirstQuestion) {
-            needToStartTestHook.editOriginalEmbeds(embed.build())
-                    .setActionRow(a, b, c, d)
-                    .queue(message -> {
-                                ScheduledFuture<?> timer = currentTestData
-                                        .getScheduler()
-                                        .schedule(() -> {
-                                            showTestFailed(member, message);
-                                        }, TEST_TIMER, TimeUnit.SECONDS);
+                                    currentTestData.setCurrentQuestion(currentQuestion);
+                                    currentTestData.setCurrentQuestionNumber(1);
+                                    currentTestData.getTimers().put(member, timer);
 
-                                currentTestData.setCurrentQuestion(currentQuestion);
-                                currentTestData.setCurrentQuestionNumber(1);
-                                currentTestData.getTimers().put(member, timer);
+                                    testDataByMemberMap.put(member, currentTestData);
 
-                                testDataByMemberMap.put(member, currentTestData);
+                                    System.out.println("Сообщение о первом вопросе изменено");
+                                },
+                                failure -> System.err.println("Не удалось изменить сообщение о первом вопросе: " + failure.getMessage())
+                        );
+            } else {
+                event.editMessageEmbeds(embed.build())
+                        .setActionRow(a, b, c, d)
+                        .queue(message -> {
+                                    ScheduledFuture<?> timer = currentTestData
+                                            .getScheduler()
+                                            .schedule(() -> {
+                                                showTestFailed(event.getMember(), message);
+                                            }, TEST_TIMER_SEC, TimeUnit.SECONDS);
 
-                                System.out.println("Сообщение о первом вопросе изменено");
-                            },
-                            failure -> System.err.println("Не удалось изменить сообщение о первом вопросе: " + failure.getMessage())
-                    );
-        } else {
-            event.editMessageEmbeds(embed.build())
-                    .setActionRow(a, b, c, d)
-                    .queue(message -> {
-                                ScheduledFuture<?> timer = currentTestData
-                                        .getScheduler()
-                                        .schedule(() -> {
-                                            showTestFailed(event.getMember(), message);
-                                        }, TEST_TIMER, TimeUnit.SECONDS);
+                                    currentTestData.setCurrentQuestion(currentQuestion);
+                                    currentTestData.setCurrentQuestionNumber(questionNumber);
+                                    currentTestData.getTimers().put(event.getMember(), timer);
 
-                                currentTestData.setCurrentQuestion(currentQuestion);
-                                currentTestData.setCurrentQuestionNumber(questionNumber);
-                                currentTestData.getTimers().put(event.getMember(), timer);
-
-                                System.out.println("Сообщение о следующем вопросе изменено");
-                            },
-                            failure -> System.err.println("Не удалось изменить сообщение о следующем вопросе: " + failure.getMessage())
-                    );
-        }
-
+                                    System.out.println("Сообщение о следующем вопросе изменено");
+                                },
+                                failure -> System.err.println("Не удалось изменить сообщение о следующем вопросе: " + failure.getMessage())
+                        );
+            }
+        });
     }
 
     public void showTestSuccess(ButtonInteractionEvent event) {
@@ -334,7 +351,7 @@ public class RolesController {
             EmbedBuilder winEmbed = new EmbedBuilder();
             winEmbed.setColor(Colors.GREEN);
             winEmbed.setTitle("Тест пройден  :partying_face:");
-            winEmbed.setDescription("Вы получили роль дебатер.");
+            winEmbed.setDescription("Вы получили роль <@&" + RolesID.DEBATER_APF_1 +". ");
             event.editMessageEmbeds(winEmbed.build()).setActionRow(Button.success(CLOSE_TEST_BTN_ID, "Закончить")).queue(
                     success1 -> {
                         testDataByMemberMap.remove(event.getMember());
@@ -349,7 +366,7 @@ public class RolesController {
         EmbedBuilder lossEmbed = getTestFailedEmbed(currentTestData);
         event.editMessageEmbeds(lossEmbed.build()).setActionRow(Button.danger(CLOSE_TEST_BTN_ID, "Закрыть")).queue(
                 success -> {
-                    useCase.addAwaitingTest(new AwaitingTestUser(event.getMember(), TestsID.APF_TEST, new Timestamp(System.currentTimeMillis())));
+                    useCase.addAwaitingTest(new AwaitingTestUser(event.getMember(), TestsID.APF_TEST, new Timestamp(System.currentTimeMillis())), AWAITING_TEST_COOL_DOWN_MIN);
                     testDataByMemberMap.remove(event.getMember());
                     System.out.println("Сообщение о неудачном прохождении теста изменено");
                 },
@@ -361,7 +378,7 @@ public class RolesController {
         EmbedBuilder lossEmbed = getTestFailedEmbed(currentTestData);
         hook.editOriginalEmbeds(lossEmbed.build()).setActionRow(Button.danger(CLOSE_TEST_BTN_ID, "Закрыть")).queue(
                 success -> {
-                    useCase.addAwaitingTest(new AwaitingTestUser(member, TestsID.APF_TEST, new Timestamp(System.currentTimeMillis())));
+                    useCase.addAwaitingTest(new AwaitingTestUser(member, TestsID.APF_TEST, new Timestamp(System.currentTimeMillis())), AWAITING_TEST_COOL_DOWN_MIN);
                     testDataByMemberMap.remove(member);
                     System.out.println("Сообщение о неудачном прохождении теста изменено");
                 },
@@ -373,7 +390,7 @@ public class RolesController {
         EmbedBuilder lossEmbed = getTestFailedEmbed(currentTestData);
         message.editMessageEmbeds(lossEmbed.build()).setActionRow(Button.danger(CLOSE_TEST_BTN_ID, "Закрыть")).queue(
                 success -> {
-                    useCase.addAwaitingTest(new AwaitingTestUser(member, TestsID.APF_TEST, new Timestamp(System.currentTimeMillis())));
+                    useCase.addAwaitingTest(new AwaitingTestUser(member, TestsID.APF_TEST, new Timestamp(System.currentTimeMillis())), AWAITING_TEST_COOL_DOWN_MIN);
                     testDataByMemberMap.remove(member);
                     System.out.println("Сообщение о неудачном прохождении теста изменено");
                 },
@@ -382,12 +399,15 @@ public class RolesController {
     }
 
     public EmbedBuilder getTestFailedEmbed(TestDataByUser currentTestData) {
-        EmbedBuilder lossEmbed = new EmbedBuilder();
-        lossEmbed.setColor(Colors.RED);
-        lossEmbed.setTitle("Тест провален :cry:");
-        lossEmbed.setDescription("- Вы ответили правильно на " + (currentTestData.getCurrentQuestionNumber() - 1) + " из " + MAX_QUESTIONS + " вопросов.\n" +
-                "- Перепройди тест через 30 минут.");
-        return lossEmbed;
+        return useCase.getQuestionCountByTableName(TestsID.APF_TEST).thenApply(count -> {
+            EmbedBuilder lossEmbed = new EmbedBuilder();
+            lossEmbed.setColor(Colors.RED);
+            lossEmbed.setTitle("Тест провален :cry:");
+            lossEmbed.setDescription("- Вы ответили правильно на " + (currentTestData.getCurrentQuestionNumber() - 1) + " из " + processNumber(count) + " вопросов.\n" +
+                    "- Перепройди тест через " + AWAITING_TEST_COOL_DOWN_MIN + " минут.");
+            return lossEmbed;
+        }).join();
+
     }
 
     private void showEphemeralWaitingTestCoolDown(ButtonInteractionEvent event, long coolDownEndTime) {
@@ -422,12 +442,12 @@ public class RolesController {
     private EmbedBuilder getEmbedBuilderRoleDebateAPF() {
         EmbedBuilder embedBuilder = new EmbedBuilder();
         embedBuilder.setColor(Colors.BLUE);
-        embedBuilder.setDescription("Роль дебатер ");
-        embedBuilder.addField("Уровни роли", "1-й уровень - пройти тест на знания правил дебатов АПФ.\n" +
-                "2-й уровень - победить 2 раза в дебатах.\n" +
-                "3-й уровень - победить 4 раза в дебатах.\n" +
-                "4-й уровень - победить 8 раз в дебатах.\n" +
-                "5-й уровень - победить 16 раз в дебатах.", true);
+        embedBuilder.setDescription("<@&" + RolesID.DEBATER_APF_1 + ">");
+        embedBuilder.addField("Уровни роли:", "1-й уровень - пройти тест на знания правил дебатов АПФ.\n" +
+                "2-й уровень - победить 2 раза в дебатах АПФ.\n" +
+                "3-й уровень - победить 4 раза в дебатах АПФ.\n" +
+                "4-й уровень - победить 8 раз в дебатах АПФ.\n" +
+                "5-й уровень - победить 16 раз в дебатах АПФ.", true);
 
         return embedBuilder;
     }
@@ -435,12 +455,12 @@ public class RolesController {
     private EmbedBuilder getEmbedBuilderRoleHistorian() {
         EmbedBuilder embedBuilder = new EmbedBuilder();
         embedBuilder.setColor(Colors.BLUE);
-        embedBuilder.setDescription("Роль историк ");
-        embedBuilder.addField("Уровни роли", "1-й уровень - пройти тест на знание истории \n" +
-                "2-й уровень - победить 2 раза в тестах.\n" +
-                "3-й уровень - победить 4 раза в тестах.\n" +
-                "4-й уровень - победить 8 раз в тестах.\n" +
-                "5-й уровень - победить 16 раз в тестах.", true);
+        embedBuilder.setDescription("<@&" + RolesID.HISTORY_PHILOSOPHY_1 + "> (скоро)");
+        embedBuilder.addField("Уровни роли:", "1-й уровень - ответить правильно на 5 вопросов \n" +
+                "2-й уровень - ответить правильно на 10 вопросов.\n" +
+                "3-й уровень - ответить правильно на 15 вопросов.\n" +
+                "4-й уровень - ответить правильно на 20 вопросов.\n" +
+                "5-й уровень - ответить правильно на 25 вопросов.", true);
 
         return embedBuilder;
     }
@@ -448,12 +468,12 @@ public class RolesController {
     private EmbedBuilder getEmbedBuilderRoleLogic() {
         EmbedBuilder embedBuilder = new EmbedBuilder();
         embedBuilder.setColor(Colors.BLUE);
-        embedBuilder.setDescription("Роль логик");
-        embedBuilder.addField("Уровни роли", "1-й уровень - пройти тест на знание логики АПФ.\n" +
-                "2-й уровень - победить 2 раза в тестах.\n" +
-                "3-й уровень - победить 4 раза в тестах.\n" +
-                "4-й уровень - победить 8 раз в тестах.\n" +
-                "5-й уровень - победить 16 раз в тестах.", true);
+        embedBuilder.setDescription("<@&" + RolesID.LOGIC_1 + "> (скоро)");
+        embedBuilder.addField("Уровни роли:", "1-й уровень - ответить правильно на 5 вопросов.\n" +
+                "2-й уровень - ответить правильно на 10 вопросов.\n" +
+                "3-й уровень - ответить правильно на 15 вопросов.\n" +
+                "4-й уровень - ответить правильно на 20 вопросов.\n" +
+                "5-й уровень - ответить правильно на 25 вопросов.", true);
 
         return embedBuilder;
     }
@@ -465,5 +485,12 @@ public class RolesController {
         return embed.getDescription();
     }
 
+    public int processNumber(int input) {
+        if (input >= 10) {
+            return input / 5 * 5;
+        } else {
+            return 5;
+        }
+    }
 
 }

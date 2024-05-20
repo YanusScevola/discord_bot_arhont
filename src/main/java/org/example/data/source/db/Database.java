@@ -94,15 +94,15 @@ public class Database {
 
     private void createTestsTable() {
         executeTableCreation(DbConstants.TABLE_APF_TEST,
-                "(" + DbConstants.COLUMN_APF_TEST_ID + " INT NOT NULL AUTO_INCREMENT, " +
-                        DbConstants.COLUMN_APF_TEST_QUESTION + " VARCHAR(255), " +
-                        DbConstants.COLUMN_APF_TEST_ANSWER_1 + " VARCHAR(255), " +
-                        DbConstants.COLUMN_APF_TEST_ANSWER_2 + " VARCHAR(255), " +
-                        DbConstants.COLUMN_APF_TEST_ANSWER_3 + " VARCHAR(255), " +
-                        DbConstants.COLUMN_APF_TEST_ANSWER_4 + " VARCHAR(255), " +
-                        DbConstants.COLUMN_APF_TEST_CORRECT_ANSWER + " VARCHAR(255), " +
-                        DbConstants.COLUMN_APF_TEST_DIFFICULTY_LEVEL + " INT, " +
-                        "PRIMARY KEY (" + DbConstants.COLUMN_APF_TEST_ID + "));");
+                "(" + DbConstants.COLUMN_TEST_ID + " INT NOT NULL AUTO_INCREMENT, " +
+                        DbConstants.COLUMN_TEST_QUESTION + " VARCHAR(255), " +
+                        DbConstants.COLUMN_TEST_ANSWER_1 + " VARCHAR(255), " +
+                        DbConstants.COLUMN_TEST_ANSWER_2 + " VARCHAR(255), " +
+                        DbConstants.COLUMN_TEST_ANSWER_3 + " VARCHAR(255), " +
+                        DbConstants.COLUMN_TEST_ANSWER_4 + " VARCHAR(255), " +
+                        DbConstants.COLUMN_TEST_CORRECT_ANSWER + " VARCHAR(255), " +
+                        DbConstants.COLUMN_TEST_DIFFICULTY_LEVEL + " INT, " +
+                        "PRIMARY KEY (" + DbConstants.COLUMN_TEST_ID + "));");
     }
 
     private void createAwaitingTestsTable() {

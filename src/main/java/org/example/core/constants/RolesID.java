@@ -13,4 +13,18 @@ public class RolesID {
     public static final long DEBATER_APF_4 = 1227940422140166154L;
     public static final long DEBATER_APF_5 = 1227942170145718367L;
 
+    public static final long HISTORY_PHILOSOPHY_1 = 1227689675200790578L;
+    public static final long HISTORY_PHILOSOPHY_2 = 1228873385472430170L;
+    public static final long HISTORY_PHILOSOPHY_3 = 1228873603395751989L;
+    public static final long HISTORY_PHILOSOPHY_4 = 1228873657456001055L;
+    public static final long HISTORY_PHILOSOPHY_5 = 1228873681602744340L;
+
+    public static final long LOGIC_1 = 1229075619011235873L;
+    public static final long LOGIC_2 = 1229076556031332352L;
+    public static final long LOGIC_3 = 1229076656069808249L;
+    public static final long LOGIC_4 = 1229076668279427162L;
+    public static final long LOGIC_5 = 1229076672767197214L;
+
+
+
 }

@@ -7,14 +7,14 @@ public class DbConstants {
     public static final String COLUMN_VERSION = "version";
 
     public static final String TABLE_APF_TEST = "apf_tests";
-    public static final String COLUMN_APF_TEST_ID = "id";
-    public static final String COLUMN_APF_TEST_QUESTION = "question";
-    public static final String COLUMN_APF_TEST_ANSWER_1 = "answer_1";
-    public static final String COLUMN_APF_TEST_ANSWER_2 = "answer_2";
-    public static final String COLUMN_APF_TEST_ANSWER_3 = "answer_3";
-    public static final String COLUMN_APF_TEST_ANSWER_4 = "answer_4";
-    public static final String COLUMN_APF_TEST_CORRECT_ANSWER = "correct_answer";
-    public static final String COLUMN_APF_TEST_DIFFICULTY_LEVEL = "difficulty_level";
+    public static final String COLUMN_TEST_ID = "id";
+    public static final String COLUMN_TEST_QUESTION = "question";
+    public static final String COLUMN_TEST_ANSWER_1 = "answer_1";
+    public static final String COLUMN_TEST_ANSWER_2 = "answer_2";
+    public static final String COLUMN_TEST_ANSWER_3 = "answer_3";
+    public static final String COLUMN_TEST_ANSWER_4 = "answer_4";
+    public static final String COLUMN_TEST_CORRECT_ANSWER = "correct_answer";
+    public static final String COLUMN_TEST_DIFFICULTY_LEVEL = "difficulty_level";
 
     public static final String TABLE_THEMES = "apf_themes";
     public static final String COLUMN_THEMES_ID = "id";

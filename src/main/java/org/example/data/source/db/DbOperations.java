@@ -14,79 +14,35 @@ public class DbOperations {
         this.db = Database.getInstance();
     }
 
-
-    public CompletableFuture<List<QuestionModel>> getQuestions(List<Integer> questionIds) {
-        if (questionIds == null || questionIds.isEmpty()) {
-            return CompletableFuture.completedFuture(Collections.emptyList());
-        }
-
+    public CompletableFuture<List<QuestionModel>> getRandomQuestions(String testName, Integer levelsLimit) {
         return db.executeWithConnection().thenCompose(connectionResult -> {
             if (!connectionResult) {
                 return CompletableFuture.completedFuture(Collections.emptyList());
             } else {
                 return CompletableFuture.supplyAsync(() -> {
-                    String placeholders = questionIds.stream()
-                            .map(id -> "?")
-                            .collect(Collectors.joining(","));
-                    String sql = "SELECT * FROM " + DbConstants.TABLE_APF_TEST + " WHERE " +
-                            DbConstants.COLUMN_APF_TEST_ID + " IN (" + placeholders + ");";
                     List<QuestionModel> results = new ArrayList<>();
-                    try (PreparedStatement statement = db.getConnection().prepareStatement(sql)) {
-                        int index = 1;
-                        for (Integer id : questionIds) {
-                            statement.setInt(index++, id);
-                        }
-                        try (ResultSet rs = statement.executeQuery()) {
-                            while (rs.next()) {
-                                QuestionModel result = new QuestionModel(
-                                        rs.getInt(DbConstants.COLUMN_APF_TEST_ID),
-                                        rs.getString(DbConstants.COLUMN_APF_TEST_QUESTION),
-                                        Arrays.asList(
-                                                rs.getString(DbConstants.COLUMN_APF_TEST_ANSWER_1),
-                                                rs.getString(DbConstants.COLUMN_APF_TEST_ANSWER_2),
-                                                rs.getString(DbConstants.COLUMN_APF_TEST_ANSWER_3),
-                                                rs.getString(DbConstants.COLUMN_APF_TEST_ANSWER_4)
-                                        ),
-                                        rs.getString(DbConstants.COLUMN_APF_TEST_CORRECT_ANSWER)
-                                );
-                                results.add(result);
-                            }
-                        }
-                    } catch (SQLException e) {
-                        db.getLogger().error("Ошибка при получении списка вопросов", e);
-                        throw new RuntimeException(e);
-                    }
-                    return results;
-                });
-            }
-        });
-    }
-
-    public CompletableFuture<List<QuestionModel>> getRandomQuestions(Integer difficultyLevel) {
-        return db.executeWithConnection().thenCompose(connectionResult -> {
-            if (!connectionResult) {
-                return CompletableFuture.completedFuture(Collections.emptyList());
-            } else {
-                return CompletableFuture.supplyAsync(() -> {
-                    String sql = "SELECT * FROM " + DbConstants.TABLE_APF_TEST + " WHERE " +
-                            DbConstants.COLUMN_APF_TEST_DIFFICULTY_LEVEL + " = ? ORDER BY RAND() LIMIT 10;";
-                    List<QuestionModel> results = new ArrayList<>();
-                    try (PreparedStatement statement = db.getConnection().prepareStatement(sql)) {
-                        statement.setInt(1, difficultyLevel);
-                        try (ResultSet rs = statement.executeQuery()) {
-                            while (rs.next()) {
-                                QuestionModel result = new QuestionModel(
-                                        rs.getInt(DbConstants.COLUMN_APF_TEST_ID),
-                                        rs.getString(DbConstants.COLUMN_APF_TEST_QUESTION),
-                                        Arrays.asList(
-                                                rs.getString(DbConstants.COLUMN_APF_TEST_ANSWER_1),
-                                                rs.getString(DbConstants.COLUMN_APF_TEST_ANSWER_2),
-                                                rs.getString(DbConstants.COLUMN_APF_TEST_ANSWER_3),
-                                                rs.getString(DbConstants.COLUMN_APF_TEST_ANSWER_4)
-                                        ),
-                                        rs.getString(DbConstants.COLUMN_APF_TEST_CORRECT_ANSWER)
-                                );
-                                results.add(result);
+                    try (Connection connection = db.getConnection()) {
+                        String sqlTemplate = "SELECT * FROM " + testName + " WHERE " +
+                                DbConstants.COLUMN_TEST_DIFFICULTY_LEVEL + " = ? ORDER BY RAND() LIMIT " + levelsLimit + ";";
+                        try (PreparedStatement statement = connection.prepareStatement(sqlTemplate)) {
+                            for (int difficulty = 1; difficulty <= levelsLimit; difficulty++) {
+                                statement.setInt(1, difficulty);
+                                try (ResultSet rs = statement.executeQuery()) {
+                                    while (rs.next()) {
+                                        QuestionModel result = new QuestionModel(
+                                                rs.getInt(DbConstants.COLUMN_TEST_ID),
+                                                rs.getString(DbConstants.COLUMN_TEST_QUESTION),
+                                                Arrays.asList(
+                                                        rs.getString(DbConstants.COLUMN_TEST_ANSWER_1),
+                                                        rs.getString(DbConstants.COLUMN_TEST_ANSWER_2),
+                                                        rs.getString(DbConstants.COLUMN_TEST_ANSWER_3),
+                                                        rs.getString(DbConstants.COLUMN_TEST_ANSWER_4)
+                                                ),
+                                                rs.getString(DbConstants.COLUMN_TEST_CORRECT_ANSWER)
+                                        );
+                                        results.add(result);
+                                    }
+                                }
                             }
                         }
                     } catch (SQLException e) {
@@ -112,15 +68,15 @@ public class DbOperations {
                         try (ResultSet rs = statement.executeQuery()) {
                             while (rs.next()) {
                                 QuestionModel result = new QuestionModel(
-                                        rs.getInt(DbConstants.COLUMN_APF_TEST_ID),
-                                        rs.getString(DbConstants.COLUMN_APF_TEST_QUESTION),
+                                        rs.getInt(DbConstants.COLUMN_TEST_ID),
+                                        rs.getString(DbConstants.COLUMN_TEST_QUESTION),
                                         Arrays.asList(
-                                                rs.getString(DbConstants.COLUMN_APF_TEST_ANSWER_1),
-                                                rs.getString(DbConstants.COLUMN_APF_TEST_ANSWER_2),
-                                                rs.getString(DbConstants.COLUMN_APF_TEST_ANSWER_3),
-                                                rs.getString(DbConstants.COLUMN_APF_TEST_ANSWER_4)
+                                                rs.getString(DbConstants.COLUMN_TEST_ANSWER_1),
+                                                rs.getString(DbConstants.COLUMN_TEST_ANSWER_2),
+                                                rs.getString(DbConstants.COLUMN_TEST_ANSWER_3),
+                                                rs.getString(DbConstants.COLUMN_TEST_ANSWER_4)
                                         ),
-                                        rs.getString(DbConstants.COLUMN_APF_TEST_CORRECT_ANSWER)
+                                        rs.getString(DbConstants.COLUMN_TEST_CORRECT_ANSWER)
                                 );
                                 results.add(result);
                             }
@@ -295,20 +251,27 @@ public class DbOperations {
         });
     }
 
-
-
-
-
-    private String convertListIdToString(List<Long> list) {
-        if (list == null) return null;
-        return list.stream().map(Object::toString).collect(Collectors.joining(","));
-    }
-
-    private List<Long> convertStringToListId(String data) {
-        if (data == null || data.trim().isEmpty()) return Collections.emptyList();
-        return Arrays.stream(data.split(","))
-                .map(Long::parseLong)
-                .collect(Collectors.toList());
+    public CompletableFuture<Integer> getQuestionCountByTableName(String tableName) {
+        return db.executeWithConnection().thenCompose(connectionResult -> {
+            if (!connectionResult) {
+                return CompletableFuture.completedFuture(0);
+            } else {
+                return CompletableFuture.supplyAsync(() -> {
+                    String sql = "SELECT COUNT(*) FROM " + tableName + ";";
+                    try (PreparedStatement statement = db.getConnection().prepareStatement(sql);
+                         ResultSet rs = statement.executeQuery()) {
+                        if (rs.next()) {
+                            return rs.getInt(1);
+                        } else {
+                            return 0;
+                        }
+                    } catch (SQLException e) {
+                        db.getLogger().error("Ошибка при подсчете строк в таблице", e);
+                        throw new RuntimeException(e);
+                    }
+                });
+            }
+        });
     }
 
 
