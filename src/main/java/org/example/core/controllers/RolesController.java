@@ -350,7 +350,7 @@ public class RolesController {
             EmbedBuilder winEmbed = new EmbedBuilder();
             winEmbed.setColor(Colors.GREEN);
             winEmbed.setTitle("Тест пройден  :partying_face:");
-            winEmbed.setDescription("Вы получили роль <@&" + RolesID.DEBATER_APF_1 +". ");
+            winEmbed.setDescription("Вы получили роль <@&" + RolesID.DEBATER_APF_1 +">. ");
             event.editMessageEmbeds(winEmbed.build()).setActionRow(Button.success(CLOSE_TEST_BTN_ID, "Закончить")).queue(
                     success1 -> {
                         testDataByMemberMap.remove(event.getMember());

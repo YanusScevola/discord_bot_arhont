@@ -10,10 +10,8 @@ import org.example.core.constants.RolesID;
 import org.example.core.constants.TextChannelsID;
 import org.example.domain.UseCase;
 import org.jetbrains.annotations.NotNull;
-
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -48,18 +46,17 @@ public class SecurityController {
     }
 
     private void handleForDiscordServerUrl(MessageReceivedEvent event, String text) {
+        long oneWeek = 60 * 24 * 7;
         if (event.getChannel() instanceof TextChannel) {
             if (isDiscordServerUrl(text)) {
                 purgeMessages(event.getMember(), event.getChannel().asTextChannel());
-                sendMessageToMember(Objects.requireNonNull(event.getMember()), "Ссылки на другие сервера запрещены. Вам выдан тайм-аут на 1 неделю.");
-                long oneWeek = 60 * 24 * 7;
+                sendMessageToMember(Objects.requireNonNull(event.getMember()), "Публикова ссылки на другие сервера запрещены. Вам выдан тайм-аут на 1 неделю.");
                 giveTimeout(oneWeek, event);
             }
         } else if (event.getChannel() instanceof VoiceChannel) {
             if (isDiscordServerUrl(text)) {
                 purgeMessages(event.getMember(), event.getChannel().asVoiceChannel());
-                sendMessageToMember(Objects.requireNonNull(event.getMember()), "Ссылки на другие сервера запрещены. Вам выдан тайм-аут на 1 неделю.");
-                long oneWeek = 60 * 24 * 7;
+                sendMessageToMember(Objects.requireNonNull(event.getMember()), "Публикова ссылки на другие сервера запрещены. Вам выдан тайм-аут на 1 неделю.");
                 giveTimeout(oneWeek, event);
             }
         }
@@ -87,7 +84,7 @@ public class SecurityController {
                 timeoutAction.queue(
                         success -> {
                             if (textChannel != null) {
-                                textChannel.sendMessage("Участнику <@" + member.getIdLong() + "> был дан тайм-аут на " + timeoutMinutes + " минут.").queue();
+                                textChannel.sendMessage("Участнику <@" + member.getIdLong() + "> был дан тайм-аут на " + timeoutMinutes + " минут за \"Размещение рекламы другого сервера\".").queue();
                             }
                         },
                         error -> {

@@ -8,12 +8,11 @@ import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.interactions.InteractionHook;
+import net.dv8tion.jda.api.interactions.components.ComponentInteraction;
+import net.dv8tion.jda.api.interactions.components.buttons.ButtonInteraction;
 import org.example.core.models.*;
 import org.example.core.utils.DateTimeUtils;
 import org.example.data.models.AwaitingTestUserModel;
-import org.example.data.models.DebateModel;
-import org.example.data.models.DebaterModel;
-import org.example.data.models.ThemeModel;
 import org.example.data.source.ApiService;
 import org.example.data.source.db.DbOperations;
 import org.jetbrains.annotations.NotNull;
@@ -22,8 +21,6 @@ import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class UseCase {
@@ -58,7 +55,19 @@ public class UseCase {
     }
 
     public CompletableFuture<VoiceChannel> getVoiceChannel(long channelId) {
-        return apiService.getVoiceChannelById(channelId);
+        return apiService.getVoiceChannel(channelId);
+    }
+
+public CompletableFuture<VoiceChannel> getVoiceChannel(String channelName) {
+        return apiService.getVoiceChannel(channelName);
+    }
+
+    public CompletableFuture<Boolean> isVoiceChannelExist(String channelName) {
+        return apiService.isVoiceChannelExist(channelName);
+    }
+
+    public CompletableFuture<VoiceChannel> createVoiceChannel(String channelName, long categoryId) {
+        return apiService.createVoiceChannel(channelName, categoryId);
     }
 
     public CompletableFuture<Message> getMessageByIndex(TextChannel channel, int index) {
@@ -93,11 +102,11 @@ public class UseCase {
         return apiService.processingMicrophone(members, false);
     }
 
-    public CompletableFuture<InteractionHook> showEphemeralShortLoading(@NotNull ButtonInteractionEvent event) {
+    public CompletableFuture<InteractionHook> showEphemeralShortLoading(@NotNull ComponentInteraction event) {
         return apiService.showEphemeralShortLoading(event);
     }
 
-    public CompletableFuture<InteractionHook> showEphemeral(@NotNull ButtonInteractionEvent event) {
+    public CompletableFuture<InteractionHook> showEphemeral(@NotNull ComponentInteraction event) {
         return apiService.showEphemeral(event);
     }
 

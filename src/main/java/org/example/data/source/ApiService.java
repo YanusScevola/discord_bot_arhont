@@ -10,6 +10,9 @@ import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.interactions.InteractionHook;
+import net.dv8tion.jda.api.interactions.components.ComponentInteraction;
+import net.dv8tion.jda.api.interactions.components.buttons.ButtonInteraction;
+import net.dv8tion.jda.api.requests.restaction.ChannelAction;
 import org.example.core.constants.ServerID;
 import org.jetbrains.annotations.NotNull;
 
@@ -179,8 +182,66 @@ public class ApiService {
 //
 //        return resultFuture;
 //    }
-//
-    public CompletableFuture<VoiceChannel> getVoiceChannelById(long channelId) {
+
+    public CompletableFuture<VoiceChannel> createVoiceChannel(String channelName, long categoryId) {
+        CompletableFuture<VoiceChannel> future = new CompletableFuture<>();
+
+        if (server == null) {
+            future.completeExceptionally(new IllegalArgumentException("Сервер не найден"));
+            return future;
+        }
+
+        Category category = server.getCategoryById(categoryId);
+        if (category == null) {
+            future.completeExceptionally(new IllegalArgumentException("Категория с указанным ID не найдена"));
+            return future;
+        }
+
+        // Создание голосового канала внутри указанной категории
+        ChannelAction<VoiceChannel> action = category.createVoiceChannel(channelName);
+        action.queue(
+                voiceChannel -> future.complete(voiceChannel),
+                error -> {
+                    System.err.println("Не удалось создать голосовой канал: " + error.getMessage());
+                    future.completeExceptionally(new RuntimeException("Не удалось создать голосовой канал", error));
+                }
+        );
+
+        return future;
+    }
+    public CompletableFuture<Boolean> isVoiceChannelExist(String channelName) {
+        CompletableFuture<Boolean> future = new CompletableFuture<>();
+
+        if (server == null) {
+            future.completeExceptionally(new IllegalArgumentException("Сервер не найден"));
+            return future;
+        }
+
+        boolean exists = server.getVoiceChannels().stream()
+                .anyMatch(vc -> vc.getName().equalsIgnoreCase(channelName));
+
+        future.complete(exists);
+        return future;
+    }
+
+    public CompletableFuture<List<VoiceChannel>> getVoiceChannelsByName(String channelName) {
+        CompletableFuture<List<VoiceChannel>> future = new CompletableFuture<>();
+
+        if (server == null) {
+            future.completeExceptionally(new IllegalArgumentException("Сервер не найден"));
+            return future;
+        }
+
+        // Поиск всех голосовых каналов по имени
+        List<VoiceChannel> channels = server.getVoiceChannels().stream()
+                .filter(vc -> vc.getName().equalsIgnoreCase(channelName))
+                .collect(Collectors.toList());
+
+        future.complete(channels);
+        return future;
+    }
+
+    public CompletableFuture<VoiceChannel> getVoiceChannel(long channelId) {
         CompletableFuture<VoiceChannel> future = new CompletableFuture<>();
         if (server == null) {
             future.completeExceptionally(new IllegalArgumentException("Нет такого сервера"));
@@ -188,9 +249,21 @@ public class ApiService {
         }
         VoiceChannel channel = server.getVoiceChannelById(channelId);
         if (channel == null) {
-            future.completeExceptionally(new IllegalArgumentException("Нет такого голосового канала"));
+            return null;
+        }
+        future.complete(channel);
+        return future;
+    }
+    public CompletableFuture<VoiceChannel> getVoiceChannel(String channelName) {
+        CompletableFuture<VoiceChannel> future = new CompletableFuture<>();
+        if (server == null) {
+            future.completeExceptionally(new IllegalArgumentException("Нет такого сервера"));
             return future;
         }
+        VoiceChannel channel = server.getVoiceChannels().stream()
+                .filter(vc -> vc.getName().equalsIgnoreCase(channelName))
+                .findFirst()
+                .orElse(null);
         future.complete(channel);
         return future;
     }
@@ -386,7 +459,7 @@ public class ApiService {
     }
 
 
-    public CompletableFuture<InteractionHook> showEphemeralShortLoading(@NotNull ButtonInteractionEvent event) {
+    public CompletableFuture<InteractionHook> showEphemeralShortLoading(@NotNull ComponentInteraction event) {
         CompletableFuture<InteractionHook> resultFuture = new CompletableFuture<>();
 
         if (!event.isAcknowledged()) {
@@ -414,7 +487,7 @@ public class ApiService {
         return resultFuture;
     }
 
-    public CompletableFuture<InteractionHook> showEphemeral(@NotNull ButtonInteractionEvent event) {
+    public CompletableFuture<InteractionHook> showEphemeral(@NotNull ComponentInteraction event) {
         CompletableFuture<InteractionHook> resultFuture = new CompletableFuture<>();
 
         if (!event.isAcknowledged()) {
